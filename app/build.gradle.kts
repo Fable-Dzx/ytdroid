@@ -24,7 +24,8 @@ android {
         buildConfigField("String", "GITHUB_REPO", "\"Fable-Dzx/ytdroid\"")
 
         ndk {
-            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+            // Python 3.13 官方只提供 arm64-v8a / x86_64；主流手机均为 arm64
+            abiFilters += listOf("arm64-v8a")
         }
     }
 

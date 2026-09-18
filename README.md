@@ -55,7 +55,7 @@ git push origin main
 
 ## 安装
 
-侧载 APK（`设置 → 安全 → 允许安装未知来源`）。最低 Android 8.0（API 26），支持 arm64-v8a / armeabi-v7a。
+侧载 APK（`设置 → 安全 → 允许安装未知来源`）。最低 Android 8.0（API 26），支持 arm64-v8a（Python 3.13 仅提供该 ABI）。
 
 ## 配置文件
 
