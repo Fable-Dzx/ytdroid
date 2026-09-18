@@ -66,8 +66,10 @@ android {
 }
 
 chaquopy {
-    defaultPythonVersion = "3.13"
-    buildPython = "python3"
+    defaultConfig {
+        version = "3.13"
+        buildPython = listOf("python3")
+    }
 }
 
 dependencies {
