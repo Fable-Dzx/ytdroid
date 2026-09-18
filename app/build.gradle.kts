@@ -34,12 +34,13 @@ android {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             val pass = System.getenv("KEYSTORE_PASS")
+            val alias = System.getenv("KEYSTORE_ALIAS") ?: "release"
             val ks = rootProject.file("release.keystore")
             if (pass != null && ks.exists()) {
                 signingConfig = signingConfigs.create("ci") {
                     storeFile = ks
                     storePassword = pass
-                    keyAlias = "release"
+                    keyAlias = alias
                     keyPassword = pass
                 }
             } else {

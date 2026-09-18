@@ -27,13 +27,26 @@ jobs:
         with:
           gradle-version: 8.9
 
-      - name: Create CI signing keystore (ephemeral)
+      - name: Restore or create signing keystore
+        env:
+          KS_B64: ${{ secrets.KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.KEYSTORE_PASS }}
         run: |
-          keytool -genkeypair -v -keystore release.keystore -alias release \
-            -keyalg RSA -keysize 2048 -validity 10000 \
-            -storepass ytdroid-ci-pass -keypass ytdroid-ci-pass \
-            -dname "CN=ytDroid CI,OU=CI,O=ytDroid,L=Internet,ST=Internet,C=CN"
-          echo "KEYSTORE_PASS=ytdroid-ci-pass" >> "$GITHUB_ENV"
+          if [ -n "$KS_B64" ] && [ -n "$KS_PASS" ]; then
+            echo "$KS_B64" | base64 -d > release.keystore
+            echo "KEYSTORE_PASS=$KS_PASS" >> "$GITHUB_ENV"
+            echo "KEYSTORE_ALIAS=${{ secrets.KEYSTORE_ALIAS }}" >> "$GITHUB_ENV"
+            echo "::notice::Restored persistent release keystore from secrets"
+          else
+            # fork / 无 Secrets 时的回退：一次性密钥（注意：仅用于测试，无法覆盖安装升级）
+            keytool -genkeypair -v -keystore release.keystore -alias release \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass ytdroid-ci-pass -keypass ytdroid-ci-pass \
+              -dname "CN=ytDroid CI,OU=CI,O=ytDroid,L=Internet,ST=Internet,C=CN"
+            echo "KEYSTORE_PASS=ytdroid-ci-pass" >> "$GITHUB_ENV"
+            echo "KEYSTORE_ALIAS=release" >> "$GITHUB_ENV"
+            echo "::warning::No persistent keystore secret; generated ephemeral keystore"
+          fi
 
       - name: Build release APK
         run: |
