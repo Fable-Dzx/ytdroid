@@ -128,7 +128,11 @@ fun mimeTypeOf(name: String): String = when (name.substringAfterLast('.', "").lo
 fun isVersionNewer(new: String, old: String): Boolean {
     val n = parseVersion(new) ?: return false
     val o = parseVersion(old) ?: return true
-    return n > o
+    for (i in 0..2) {
+        val c = n[i].compareTo(o[i])
+        if (c != 0) return c > 0
+    }
+    return false
 }
 
 private fun parseVersion(v: String): List<Int>? {

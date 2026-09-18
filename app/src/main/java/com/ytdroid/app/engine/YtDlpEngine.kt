@@ -70,7 +70,7 @@ object YtDlpEngine {
     /** 幂等初始化：解压内置包 → 启动 Python → 按设置自动更新。 */
     suspend fun ensureReady(context: Context, settings: AppSettings? = null): Boolean {
         if (initialized.value) return true
-        initMutex.withLock {
+        return initMutex.withLock {
             if (initialized.value) return true
             val appCtx = context.applicationContext
             try {

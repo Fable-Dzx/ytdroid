@@ -24,17 +24,17 @@ object PythonBridge {
         started = true
     }
 
-    private fun withPath(ytdlpDir: File, block: (Python) -> Unit) {
+    private fun <T> withPath(ytdlpDir: File, block: (Python) -> T): T {
         val py = Python.getInstance()
         val sys = py.getModule("sys")
-        sys.get("path").callAttr("insert", 0, ytdlpDir.absolutePath)
-        block(py)
+        sys.get("path")?.callAttr("insert", 0, ytdlpDir.absolutePath)
+        return block(py)
     }
 
     /** 读取当前生效的 yt-dlp 版本号。 */
     fun currentVersion(ytdlpDir: File): String? = try {
         withPath(ytdlpDir) { py ->
-            py.getModule("yt_dlp.version").getAttr("__version__").toString()
+            py.getModule("yt_dlp.version").get("__version__")?.toString()
         }
     } catch (e: Exception) {
         null
