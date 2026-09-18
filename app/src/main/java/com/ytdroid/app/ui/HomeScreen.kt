@@ -216,7 +216,7 @@ fun HomeScreen() {
                 )
                 if (engineState.ffmpegVersion == null) {
                     Text(
-                        "提示：未安装 ffmpeg。合并音视频 / 提取音频 / 嵌入字幕需要它，可在「引擎」页配置。",
+                        "提示：未安装 ffmpeg。合并音视频 / 提取音频 / 嵌入字幕需要它，可在「环境」页配置。",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.tertiary,
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),

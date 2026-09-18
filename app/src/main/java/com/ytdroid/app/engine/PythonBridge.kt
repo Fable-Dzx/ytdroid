@@ -31,6 +31,13 @@ object PythonBridge {
         return block(py)
     }
 
+    /** 读取内嵌 Python 运行时的版本号（sys.version 首段，如 3.13.0）。 */
+    fun pythonVersion(): String? = try {
+        Python.getInstance().getModule("sys").get("version")?.toString()?.substringBefore(" ")
+    } catch (e: Exception) {
+        null
+    }
+
     /** 读取当前生效的 yt-dlp 版本号。 */
     fun currentVersion(ytdlpDir: File): String? = try {
         withPath(ytdlpDir) { py ->

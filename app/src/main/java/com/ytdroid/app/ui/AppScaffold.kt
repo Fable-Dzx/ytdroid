@@ -46,7 +46,7 @@ fun AppScaffold() {
     val tabs = listOf(
         TabSpec("下载") { Icon(painterResource(R.drawable.ic_download), contentDescription = null) },
         TabSpec("任务") { Icon(Icons.Default.List, contentDescription = null) },
-        TabSpec("引擎") { Icon(Icons.Default.Build, contentDescription = null) },
+        TabSpec("环境") { Icon(Icons.Default.Build, contentDescription = null) },
         TabSpec("设置") { Icon(Icons.Default.Settings, contentDescription = null) },
     )
 
@@ -83,7 +83,7 @@ fun AppScaffold() {
             when (tabIndex) {
                 0 -> HomeScreen()
                 1 -> DownloadsScreen()
-                2 -> EngineScreen()
+                2 -> EnvironmentScreen()
                 3 -> SettingsScreen()
             }
         }

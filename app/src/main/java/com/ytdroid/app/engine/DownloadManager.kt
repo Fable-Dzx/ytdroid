@@ -88,7 +88,7 @@ object DownloadManager {
 
         val ready = YtDlpEngine.ensureReady(appCtx, settings)
         if (!ready) {
-            mark(task.copy(status = DownloadTask.Status.FAILED, error = "引擎未就绪，请查看「引擎」页"))
+            mark(task.copy(status = DownloadTask.Status.FAILED, error = "引擎未就绪，请查看「环境」页"))
             return
         }
 

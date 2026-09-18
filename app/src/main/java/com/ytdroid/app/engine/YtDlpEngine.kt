@@ -7,6 +7,7 @@ import com.ytdroid.app.data.SettingsRepository
 import com.ytdroid.app.util.Net
 import com.ytdroid.app.util.Zips
 import com.ytdroid.app.util.ffmpegVersion
+import com.ytdroid.app.util.parseShellArgs
 import com.ytdroid.app.util.resolveDownloadDir
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -35,6 +36,7 @@ object YtDlpEngine {
 
     data class EngineState(
         val ready: Boolean = false,
+        val pythonVersion: String? = null,
         val ytDlpVersion: String? = null,
         val ffmpegVersion: String? = null,
         val updating: Boolean = false,
@@ -125,9 +127,10 @@ object YtDlpEngine {
     }
 
     private suspend fun refreshVersions(context: Context) {
+        val pv = withContext(Dispatchers.IO) { PythonBridge.pythonVersion() }
         val yv = withContext(Dispatchers.IO) { PythonBridge.currentVersion(ytdlpDir(context)) }
         val fv = withContext(Dispatchers.IO) { ffmpegVersion(binDir(context)) }
-        _state.value = _state.value.copy(ytDlpVersion = yv, ffmpegVersion = fv)
+        _state.value = _state.value.copy(pythonVersion = pv, ytDlpVersion = yv, ffmpegVersion = fv)
     }
 
     // ---------------- 更新 ----------------
@@ -276,6 +279,130 @@ object YtDlpEngine {
         } finally {
             _state.value = _state.value.copy(configUpdating = false)
         }
+    }
+
+    // ---------------- 环境维护（Termux 式） ----------------
+
+    /** 读取当前配置文件全文。 */
+    fun readConfig(context: Context): String =
+        runCatching { configFile(context).readText() }.getOrDefault("")
+
+    /** 写回配置文件，返回是否成功。 */
+    fun writeConfig(context: Context, text: String): Boolean = try {
+        val cfg = configFile(context)
+        cfg.parentFile?.mkdirs()
+        cfg.writeText(text)
+        true
+    } catch (e: Exception) {
+        false
+    }
+
+    /** 从内置资源恢复默认配置文件。 */
+    fun restoreDefaultConfig(context: Context): Boolean = try {
+        val cfg = configFile(context)
+        cfg.parentFile?.mkdirs()
+        context.assets.open("config/yt-dlp.conf").use { input ->
+            cfg.outputStream().use { input.copyTo(it) }
+        }
+        true
+    } catch (e: Exception) {
+        false
+    }
+
+    /** 应用私有数据目录总占用（引擎 + 运行产物等）。 */
+    suspend fun envDiskUsage(context: Context): Long = withContext(Dispatchers.IO) {
+        runCatching {
+            context.filesDir.walkBottomUp().filter { it.isFile }.sumOf { it.length() }
+        }.getOrDefault(0L)
+    }
+
+    /**
+     * 重建环境：清空引擎目录与版本标记后重新初始化（等价 Termux 的重新安装核心包）。
+     * 注意：有正在运行的任务时请勿调用。
+     */
+    suspend fun reinitialize(context: Context): Boolean {
+        val appCtx = context.applicationContext
+        initMutex.withLock {
+            initialized.value = false
+            ytdlpDir(appCtx).deleteRecursively()
+            versionMarker(appCtx).delete()
+            _state.value = _state.value.copy(
+                ready = false, pythonVersion = null, ytDlpVersion = null, ffmpegVersion = null,
+                message = "正在重建环境…",
+            )
+        }
+        return ensureReady(appCtx)
+    }
+
+    // ---------------- 命令行运行器 ----------------
+
+    @Volatile
+    private var cliIdentFile: File? = null
+
+    /**
+     * 自由命令行运行器：把用户输入的命令（如 `yt-dlp -F <url>` 或直接 `-F <url>`）
+     * 交给内嵌 Python 的 yt-dlp 执行，stdout/stderr 逐行回调，返回退出码。
+     */
+    suspend fun runCli(
+        context: Context,
+        commandLine: String,
+        onLine: (String) -> Unit,
+    ): Int = withContext(Dispatchers.IO) {
+        val appCtx = context.applicationContext
+        val settings = SettingsRepository.current(appCtx)
+        if (!ensureReady(appCtx, settings)) return@withContext 2
+
+        val tokens = parseShellArgs(commandLine)
+        if (tokens.isEmpty()) return@withContext 2
+        // runner.py 会自动在 argv 前补 "yt-dlp" 程序名，这里剥掉用户手写的
+        val argv = if (tokens[0] == "yt-dlp") tokens.drop(1) else tokens
+
+        val dir = ytdlpDir(appCtx)
+        val run = runDir(appCtx)
+        run.mkdirs()
+
+        val ts = System.currentTimeMillis()
+        val argfile = File(run, "cli-$ts.json")
+        val outFile = File(run, "cli-$ts.out")
+        val errFile = File(run, "cli-$ts.err")
+        val rcFile = File(run, "cli-$ts.rc")
+        val identFile = File(run, "cli-$ts.ident")
+        argfile.delete(); outFile.delete(); errFile.delete(); rcFile.delete(); identFile.delete()
+
+        val cfg = JSONObject().apply {
+            put("argv", JSONArray(argv))
+            put("extra_path", dir.absolutePath)
+            put("cwd", resolveDownloadDir(appCtx, settings).absolutePath)
+            put("redirect", JSONObject().apply {
+                put("stdout", outFile.absolutePath)
+                put("stderr", errFile.absolutePath)
+            })
+            put("rcfile", rcFile.absolutePath)
+            put("identfile", identFile.absolutePath)
+        }
+        argfile.writeText(cfg.toString())
+        cliIdentFile = identFile
+
+        val stop = AtomicBoolean(false)
+        val tailer = kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
+            tailOutputs(outFile, errFile, stop = { stop.get() }) { line ->
+                if (line.isNotBlank()) onLine(line)
+            }
+        }
+        try {
+            PythonBridge.ensureStarted(appCtx)
+            PythonBridge.run(argfile, dir)
+        } finally {
+            stop.set(true)
+            tailer.join()
+            cliIdentFile = null
+        }
+        runCatching { rcFile.readText().trim().toInt() }.getOrNull() ?: 2
+    }
+
+    /** 请求取消当前命令行任务（注入 KeyboardInterrupt）。 */
+    fun cancelCli(context: Context) {
+        cliIdentFile?.let { PythonBridge.cancel(it, ytdlpDir(context)) }
     }
 
     // ---------------- 参数构建 ----------------

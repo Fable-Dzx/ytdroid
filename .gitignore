@@ -10,3 +10,6 @@ local.properties
 release.keystore
 *.jks
 *.keystore
+
+# 本地构建产物
+*.apk

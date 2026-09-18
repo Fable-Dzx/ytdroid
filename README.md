@@ -1,10 +1,11 @@
 # ytDroid — yt-dlp GUI for Android
 
-一个基于 [yt-dlp](https://github.com/yt-dlp/yt-dlp) 的安卓下载器图形界面。内核为官方 yt-dlp（纯 Python），通过 Chaquopy 内嵌 Python 3.13 运行，**无需 root、无需 Termux**。
+一个基于 [yt-dlp](https://github.com/yt-dlp/yt-dlp) 的安卓下载器图形界面。内核为官方 yt-dlp（纯 Python），通过 Chaquopy 内嵌 Python 3.13 运行，**无需 root、无需 Termux**；并参考 Termux 的用户态环境理念，提供 GUI 化的组件包管理、存储授权、配置编辑与命令行。
 
 - 🎨 Material 3 设计，支持动态取色（Android 12+）/ 深色 / 浅色
 - ⚙️ 配置齐全：格式串、音频提取、字幕、缩略图、元数据、代理、限速、Cookie、自定义参数……
-- 🧩 自由度高：每行一个参数的「附加参数」、自定义输出模板、自定义 yt-dlp / ffmpeg / 配置源
+- 🧩 自由度高：每行一个参数的「附加参数」、自定义输出模板、自定义 yt-dlp / ffmpeg / 配置源、**命令行直接执行任意 yt-dlp 参数**
+- 🌱 Termux 式环境：组件包管理（yt-dlp / Python / ffmpeg / 配置）、一键 `pkg upgrade`、存储目录授权、配置文件可视化编辑、环境重建
 - 🔄 自动更新：启动时自动检查并更新 **yt-dlp 引擎**与**配置文件**（本仓库 `config/yt-dlp.conf`）
 - ⚡ 前台服务下载 + 实时进度通知；队列 + 并行（1–3）；完成后复制到公共下载目录
 - 🤖 GitHub Actions 自动编译，每次 push 产出可安装的签名 APK
@@ -13,8 +14,8 @@
 
 ```
 ┌─────────────────────────────────────────────┐
-│                    ytDroid (Kotlin + Compose)│
-│  主页(解析/下载) · 任务(进度/管理) · 引擎(更新) · 设置 │
+│         ytDroid (Kotlin + Compose)          │
+│  主页(解析/下载) · 任务(进度/管理) · 环境 · 设置 │
 └──────────────┬──────────────────────────────┘
                │ ProcessBridge (runner.py + 参数 JSON)
                ▼
@@ -22,12 +23,13 @@
 │       Chaquopy 内嵌 Python 3.13 (同进程)        │
 │   filesDir/ytdlp/yt_dlp  ← 内置, 启动自动更新    │
 │   filesDir/bin/ffmpeg     ← 可选, 可配置源      │
-│   filesDir/config/yt-dlp.conf ← 仓库同步        │
+│   filesDir/config/yt-dlp.conf ← 仓库同步/应用内编辑│
 └─────────────────────────────────────────────┘
 ```
 
 - **yt-dlp 引擎**：应用内置官方源码包（`app/src/main/assets/ytdlp.zip`）。启动时若开启了「自动更新」，会从官方 GitHub 下载最新 `yt-dlp.tar.gz` 并热替换，无需安装应用更新。
-- **ffmpeg**：用于合并音视频流 / 提取音频 / 嵌入字幕缩略图。官方不再发布安卓二进制，应用将其做成**可配置**：在「引擎」页填 zip 直链安装，或从本地 zip 文件安装；未安装时自动降级为单文件格式下载。
+- **ffmpeg**：用于合并音视频流 / 提取音频 / 嵌入字幕缩略图。官方不再发布安卓二进制，应用将其做成**可配置**：在「环境」页填 zip 直链安装，或从本地 zip 文件安装；未安装时自动降级为单文件格式下载。
+- **命令行**：`环境 → 命令行` 直接输入任意 yt-dlp 参数（如 `-F https://…`）并实时查看完整输出，支持中断，最大限度保留 yt-dlp 的原始自由度。
 
 ## 编译（GitHub Actions）
 
@@ -74,10 +76,11 @@ git push origin main
 
 ## 常见问题
 
-- **「解析失败」**：确认「引擎」页 yt-dlp 已就绪；部分站点需要 Cookie（设置 → 网络与容错 → Cookies 文件路径）或代理。
-- **下载后文件在哪里**：默认在应用私有目录（`Android/data/com.ytdroid.app/files/Download/ytdroid`），完成后自动复制一份到系统 `Download/ytDroid`（Android 10+）。
-- **ffmpeg 未安装**：合并高画质音视频、提取 mp3 等需要 ffmpeg，在「引擎」页配置。
+- **「解析失败」**：确认「环境」页 yt-dlp 已就绪；部分站点需要 Cookie（设置 → 网络与容错 → Cookies 文件路径）或代理。
+- **下载后文件在哪里**：默认在应用私有目录（`Android/data/com.ytdroid.app/files/Download/ytdroid`），完成后自动复制一份到系统 `Download/ytDroid`（Android 10+）；也可在「环境 → 存储访问」授权后浏览。
+- **ffmpeg 未安装**：合并高画质音视频、提取 mp3 等需要 ffmpeg，在「环境 → 组件包」配置。
 - **取消任务**：会向 yt-dlp 注入中断信号，已下载的分片保留，下次可续传（`--continue` 默认开启）。
+- **配置文件怎么改**：`环境 → 组件包 → 配置文件 → 编辑` 直接修改全局参数，保存后下次下载生效；也可恢复默认或从仓库同步。
 
 ## 技术栈
 

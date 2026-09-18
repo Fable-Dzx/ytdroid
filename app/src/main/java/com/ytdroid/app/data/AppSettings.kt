@@ -40,6 +40,8 @@ data class AppSettings(
     val customYtDlpUrl: String = "",
     val ffmpegUrl: String = "",
     val configUrl: String = "",
+    // 存储（termux-setup-storage 式 SAF 授权）
+    val storageUri: String = "",              // 已授权的存储目录 URI（持久化权限）
     // 外观
     val themeMode: String = "system",             // system / light / dark
     val dynamicColor: Boolean = true,

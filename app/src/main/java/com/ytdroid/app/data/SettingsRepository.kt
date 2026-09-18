@@ -47,6 +47,7 @@ object SettingsRepository {
     private val KEY_CONFIG_URL = stringPreferencesKey("config_url")
     private val KEY_THEME = stringPreferencesKey("theme")
     private val KEY_DYNAMIC = booleanPreferencesKey("dynamic_color")
+    private val KEY_STORAGE_URI = stringPreferencesKey("storage_uri")
 
     fun settings(context: Context): Flow<AppSettings> {
         val ds = context.applicationContext.dataStore
@@ -84,6 +85,7 @@ object SettingsRepository {
                 configUrl = p[KEY_CONFIG_URL] ?: BuildConfig.DEFAULT_CONFIG_URL,
                 themeMode = p[KEY_THEME] ?: "system",
                 dynamicColor = p[KEY_DYNAMIC] ?: true,
+                storageUri = p[KEY_STORAGE_URI] ?: "",
             )
         }
     }
@@ -125,6 +127,7 @@ object SettingsRepository {
             p[KEY_CONFIG_URL] = target.configUrl
             p[KEY_THEME] = target.themeMode
             p[KEY_DYNAMIC] = target.dynamicColor
+            p[KEY_STORAGE_URI] = target.storageUri
         }
     }
 }
