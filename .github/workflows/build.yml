@@ -59,6 +59,11 @@ jobs:
               -PvCode=${{ github.run_number }} -PvName=1.0.${{ github.run_number }}
           fi
 
+      - name: Print signing certificate fingerprint
+        run: |
+          keytool -exportcert -keystore release.keystore -alias "$KEYSTORE_ALIAS" -storepass "$KEYSTORE_PASS" -rfc -file /tmp/cert.pem
+          openssl x509 -in /tmp/cert.pem -noout -fingerprint -sha256
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
