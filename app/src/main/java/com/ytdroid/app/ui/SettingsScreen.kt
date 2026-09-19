@@ -30,7 +30,8 @@ fun SettingsScreen() {
     val scope = rememberCoroutineScope()
     val settings by SettingsRepository.settings(context).collectAsStateWithLifecycle(initialValue = AppSettings())
 
-    val canManageAllFiles = Build.VERSION.SDK_INT < 30 || Environment.isExternalStorageManager()
+    // 仅 Android 11+ 存在「所有文件访问」；Android 10 及以下分区存储下无法直写公共目录
+    val canManageAllFiles = Build.VERSION.SDK_INT >= 30 && Environment.isExternalStorageManager()
     fun save(t: (AppSettings) -> AppSettings) {
         scope.launch { SettingsRepository.save(context, t) }
     }
@@ -50,9 +51,15 @@ fun SettingsScreen() {
                 )
                 ActionRow(
                     title = "所有文件访问权限",
-                    subtitle = if (canManageAllFiles) "已授予" else "未授予（Android 11+ 自定义下载目录需要）",
+                    subtitle = if (canManageAllFiles) {
+                        "已授予（可直写公共目录）"
+                    } else if (Build.VERSION.SDK_INT >= 30) {
+                        "未授予（自定义下载目录需开启；未开启时用应用私有目录并自动存入系统下载）"
+                    } else {
+                        "系统限制（Android 10 及以下无法直写公共目录，将使用应用私有目录）"
+                    },
                 ) {
-                    if (!canManageAllFiles) {
+                    if (!canManageAllFiles && Build.VERSION.SDK_INT >= 30) {
                         Button(onClick = {
                             try {
                                 context.startActivity(

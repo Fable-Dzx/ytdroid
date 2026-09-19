@@ -22,14 +22,15 @@ fun defaultDownloadDir(context: Context): File {
 }
 
 /**
- * 解析最终下载目录：用户自定义目录需要「所有文件访问」权限；
- * 否则回退到应用私有下载目录（无需任何权限）。
+ * 解析最终下载目录：自定义公共目录仅当 Android 11+ 且已授予「所有文件访问」；
+ * 否则回退到应用私有下载目录（无需任何权限，Android 10+ 分区存储下保证可写）。
  */
 fun resolveDownloadDir(context: Context, settings: AppSettings): File {
     val custom = settings.downloadDir.trim()
     if (custom.isNotEmpty()) {
         val f = File(custom)
-        val hasAllFiles = Build.VERSION.SDK_INT < 30 || Environment.isExternalStorageManager()
+        // 注意：Android 10 (API 29) 同样是强制分区存储，必须 API 30+ 且授予全盘访问才可直写公共目录
+        val hasAllFiles = Build.VERSION.SDK_INT >= 30 && Environment.isExternalStorageManager()
         if (f.isAbsolute && hasAllFiles) {
             f.mkdirs()
             return f

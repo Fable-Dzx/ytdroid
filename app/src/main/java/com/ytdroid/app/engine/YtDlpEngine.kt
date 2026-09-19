@@ -219,7 +219,9 @@ object YtDlpEngine {
             tmp.walkTopDown().forEach { f ->
                 if (f.isFile) {
                     val name = f.name
-                    val keep = name == "ffmpeg" || name == "ffprobe" || name.endsWith(".so")
+                    // 只保留 ffmpeg / ffprobe 与核心共享库，排除 JavaCPP 的 JNI 包装（libjni*.so）及 jar 元数据
+                    val keep = name == "ffmpeg" || name == "ffprobe" ||
+                        (name.endsWith(".so") && !name.startsWith("libjni"))
                     if (keep) {
                         val dst = File(bin, name)
                         if (!dst.isDirectory) {
