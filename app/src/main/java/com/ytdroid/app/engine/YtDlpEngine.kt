@@ -187,7 +187,7 @@ object YtDlpEngine {
         }
     }
 
-    /** 从 zip 文件安装 ffmpeg（自动在解压目录中查找可执行文件）。 */
+    /** 从 zip 文件安装 ffmpeg（库式包：可执行文件 + 同目录 .so，自动平铺到 bin；兼容旧式单文件包）。 */
     suspend fun installFfmpegZip(context: Context, zipFile: File) {
         if (_state.value.updating) return
         _state.value = _state.value.copy(updating = true, message = null)
@@ -200,23 +200,30 @@ object YtDlpEngine {
                 _state.value = _state.value.copy(message = "压缩包为空")
                 return
             }
-            val found = findExecutable(tmp, "ffmpeg")
-            if (found == null) {
-                tmp.deleteRecursively()
+            val bin = binDir(context)
+            bin.mkdirs()
+            // 平铺复制压缩包内全部文件到 bin（共享库必须与可执行文件同目录）
+            var copied = 0
+            tmp.walkTopDown().forEach { f ->
+                if (f.isFile) {
+                    val dst = File(bin, f.name)
+                    if (!dst.isDirectory) {
+                        f.copyTo(dst, overwrite = true)
+                        copied++
+                        if (f.name == "ffmpeg" || f.name == "ffprobe") dst.setExecutable(true, false)
+                    }
+                }
+            }
+            tmp.deleteRecursively()
+            if (copied == 0) {
+                _state.value = _state.value.copy(message = "压缩包为空")
+                return
+            }
+            val ff = ffmpegFile(context)
+            if (!ff.exists()) {
                 _state.value = _state.value.copy(message = "压缩包内未找到 ffmpeg 可执行文件")
                 return
             }
-            val bin = binDir(context)
-            bin.mkdirs()
-            val dst = ffmpegFile(context)
-            found.copyTo(dst, overwrite = true)
-            dst.setExecutable(true, false)
-            findExecutable(tmp, "ffprobe")?.let { fp ->
-                val d2 = File(bin, "ffprobe")
-                fp.copyTo(d2, overwrite = true)
-                d2.setExecutable(true, false)
-            }
-            tmp.deleteRecursively()
             refreshVersions(context)
             _state.value = _state.value.copy(message = "ffmpeg 安装完成：${_state.value.ffmpegVersion ?: "已就绪"}")
         } catch (e: Exception) {

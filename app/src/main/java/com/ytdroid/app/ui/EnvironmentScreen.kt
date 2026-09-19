@@ -2,6 +2,7 @@ package com.ytdroid.app.ui
 
 import android.content.Intent
 import android.net.Uri
+import com.ytdroid.app.BuildConfig
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -188,11 +189,7 @@ fun EnvironmentScreen() {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Button(
                             onClick = {
-                                val u = settings.ffmpegUrl.trim()
-                                if (u.isEmpty()) {
-                                    context.toast("请先在「下载源」填写 ffmpeg 地址")
-                                    return@Button
-                                }
+                                val u = settings.ffmpegUrl.trim().ifEmpty { BuildConfig.DEFAULT_FFMPEG_URL }
                                 scope.launch {
                                     context.toast("正在下载 ffmpeg…")
                                     YtDlpEngine.downloadAndInstallFfmpeg(context, u)
@@ -387,7 +384,7 @@ fun EnvironmentScreen() {
                     title = "ffmpeg 下载地址",
                     value = settings.ffmpegUrl,
                     onValueChange = { v -> scope.launch { SettingsRepository.save(context) { it.copy(ffmpegUrl = v) } } },
-                    subtitle = "zip 直链，内含 ffmpeg 可执行文件",
+                    subtitle = "留空 = 内置默认源一键安装（可选自定义 zip 直链）",
                 )
                 TextSettingRow(
                     title = "配置文件地址",

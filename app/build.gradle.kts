@@ -22,6 +22,12 @@ android {
             "\"https://raw.githubusercontent.com/Fable-Dzx/ytdroid/main/config/yt-dlp.conf\""
         )
         buildConfigField("String", "GITHUB_REPO", "\"Fable-Dzx/ytdroid\"")
+        // ffmpeg 一键安装默认源（Android arm64 预编译，仓库 Release 托管）
+        buildConfigField(
+            "String",
+            "DEFAULT_FFMPEG_URL",
+            "\"https://github.com/Fable-Dzx/ytdroid/releases/download/ffmpeg-arm64/ffmpeg-arm64.zip\""
+        )
 
         ndk {
             // Python 3.13 官方只提供 arm64-v8a / x86_64；主流手机均为 arm64
