@@ -2,9 +2,9 @@ package com.ytdroid.app.ui
 
 import android.content.Intent
 import android.net.Uri
-import androidx.compose.material3.Dialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Surface
+import androidx.compose.ui.window.Dialog
 import androidx.core.content.FileProvider
 import com.ytdroid.app.BuildConfig
 import androidx.activity.compose.rememberLauncherForActivityResult
