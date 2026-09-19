@@ -150,9 +150,14 @@ object YtDlpEngine {
             val custom = settings.customYtDlpUrl.trim()
             val url = if (custom.isNotEmpty()) custom else YTDLP_SOURCE_URL
             val tgz = File(context.cacheDir, "yt-dlp.tar.gz")
-            val ok = Net.downloadToFile(url, tgz)
-            if (!ok) {
-                _state.value = _state.value.copy(message = "下载 yt-dlp 更新失败")
+            var lastErr: String? = null
+            var downloaded = false
+            for (u in Net.candidateUrls(url)) {
+                lastErr = Net.downloadToFile(u, tgz)
+                if (lastErr == null) { downloaded = true; break }
+            }
+            if (!downloaded) {
+                _state.value = _state.value.copy(message = "下载 yt-dlp 更新失败：$lastErr")
                 return
             }
             val dir = ytdlpDir(context)
@@ -233,15 +238,19 @@ object YtDlpEngine {
         }
     }
 
-    /** 从 URL 下载 ffmpeg zip 并安装。 */
+    /** 从 URL 下载 ffmpeg zip 并安装（默认源失败时自动回退国内镜像）。 */
     suspend fun downloadAndInstallFfmpeg(context: Context, url: String) {
         if (_state.value.updating) return
         _state.value = _state.value.copy(updating = true, message = null)
         try {
-            val zip = File(context.cacheDir, "ffmpeg.zip")
-            val ok = Net.downloadToFile(url, zip)
-            if (!ok) {
-                _state.value = _state.value.copy(message = "下载 ffmpeg 失败")
+            var lastErr: String? = null
+            var zip: File? = null
+            for (u in Net.candidateUrls(url)) {
+                lastErr = Net.downloadToFile(u, File(context.cacheDir, "ffmpeg.zip"))
+                if (lastErr == null) { zip = File(context.cacheDir, "ffmpeg.zip"); break }
+            }
+            if (zip == null) {
+                _state.value = _state.value.copy(message = "ffmpeg 下载失败：$lastErr")
                 return
             }
             _state.value = _state.value.copy(updating = false)
