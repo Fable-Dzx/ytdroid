@@ -44,6 +44,7 @@ git push origin main
 1. JDK 17 + Gradle 8.9
 2. 签名：优先从仓库 Secrets（`KEYSTORE_BASE64` / `KEYSTORE_PASS` / `KEYSTORE_ALIAS`）恢复**持久 release 密钥**签名，保证各版本可覆盖安装升级；无 Secrets 时回退一次性密钥（仅供测试，无法覆盖安装）
 3. 上传 APK 构件
+4. 自动发布 **GitHub Release**：`v1.0.<run_number>`，附 APK 与安装说明，长期可下载（不随构件过期）
 
 版本号自动取 CI run 号（`versionCode=run_number`, `versionName=1.0.run_number`）。
 

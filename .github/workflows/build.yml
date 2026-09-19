@@ -9,6 +9,9 @@ concurrency:
   group: build-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -70,3 +73,26 @@ jobs:
           name: ytdroid-apk
           path: app/build/outputs/apk/release/*.apk
           if-no-files-found: error
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          TAG="v1.0.${RUN_NUMBER}"
+          APK_SRC="app/build/outputs/apk/release/app-release.apk"
+          APK_NAME="ytDroid-v1.0.${RUN_NUMBER}.apk"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "::notice::Release ${TAG} 已存在，跳过创建"
+          else
+            cp "$APK_SRC" "$APK_NAME"
+            gh release create "$TAG" "$APK_NAME" \
+              --title "ytDroid v1.0.${RUN_NUMBER}" \
+              --notes "本发布由 GitHub Actions 自动生成，可直接安装升级。
+
+- **APK**：${APK_NAME}（arm64-v8a，Android 8.0+）
+- **签名**：持久 release 密钥（指纹 E7:C4:F7:F3:88:B0:25:5E:D1:44:61:8A:A4:1E:F3:F9:20:99:33:9D:D9:A7:87:58:C0:BD:ED:8F:3D:C4:3A:7C），可覆盖安装上一版
+- **安装**：下载 APK → 设置 → 安全 → 允许未知来源 → 打开安装
+- **源码**：https://github.com/Fable-Dzx/ytdroid"
+            echo "::notice::已发布 Release ${TAG}"
+          fi
