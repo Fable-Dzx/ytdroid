@@ -398,7 +398,7 @@ fun EnvironmentScreen() {
                     title = "ffmpeg 下载地址",
                     value = settings.ffmpegUrl,
                     onValueChange = { v -> scope.launch { SettingsRepository.save(context) { it.copy(ffmpegUrl = v) } } },
-                    subtitle = "留空 = 内置默认源一键安装（可选自定义 zip 直链）",
+                    subtitle = "留空 = bytedeco 官方 Maven 源（自动镜像回退）",
                 )
                 TextSettingRow(
                     title = "配置文件地址",

@@ -20,15 +20,31 @@ object Net {
         "https://gh.ddlc.top/",
     )
 
+    /** Maven Central 镜像（中国大陆可直连）。 */
+    private val MAVEN_MIRRORS = listOf(
+        "https://maven.aliyun.com/repository/public/",
+        "https://repo.maven.apache.org/maven2/",
+    )
+
     /** 生成候选下载地址：原地址优先，失败自动换镜像。 */
     fun candidateUrls(url: String): List<String> {
         val base = url.trim()
         if (base.isEmpty()) return emptyList()
-        if (!base.startsWith("https://github.com/")) return listOf(base)
         val list = mutableListOf(base)
-        for (m in MIRRORS) {
-            val u = m + base
-            if (!list.contains(u)) list.add(u)
+        when {
+            base.startsWith("https://github.com/") -> {
+                for (m in MIRRORS) {
+                    val u = m + base
+                    if (!list.contains(u)) list.add(u)
+                }
+            }
+            base.startsWith("https://repo1.maven.org/") -> {
+                val suffix = base.removePrefix("https://repo1.maven.org/")
+                for (m in MAVEN_MIRRORS) {
+                    val u = m + suffix
+                    if (!list.contains(u)) list.add(u)
+                }
+            }
         }
         return list
     }

@@ -214,15 +214,19 @@ object YtDlpEngine {
             }
             val bin = binDir(context)
             bin.mkdirs()
-            // 平铺复制压缩包内全部文件到 bin（共享库必须与可执行文件同目录）
+            // 平铺复制到 bin（共享库必须与可执行文件同目录）；只保留需要的文件，跳过 jar 的 META-INF 等杂质
             var copied = 0
             tmp.walkTopDown().forEach { f ->
                 if (f.isFile) {
-                    val dst = File(bin, f.name)
-                    if (!dst.isDirectory) {
-                        f.copyTo(dst, overwrite = true)
-                        copied++
-                        if (f.name == "ffmpeg" || f.name == "ffprobe") dst.setExecutable(true, false)
+                    val name = f.name
+                    val keep = name == "ffmpeg" || name == "ffprobe" || name.endsWith(".so")
+                    if (keep) {
+                        val dst = File(bin, name)
+                        if (!dst.isDirectory) {
+                            f.copyTo(dst, overwrite = true)
+                            copied++
+                            if (name == "ffmpeg" || name == "ffprobe") dst.setExecutable(true, false)
+                        }
                     }
                 }
             }
@@ -248,15 +252,20 @@ object YtDlpEngine {
         }
     }
 
-    /** 从 URL 下载 ffmpeg zip 并安装（默认源失败时自动回退国内镜像）。 */
+    /** 从 URL 下载 ffmpeg 并安装（默认源 + 镜像 + 仓库兜底，逐个回退）。 */
     suspend fun downloadAndInstallFfmpeg(context: Context, url: String) {
         if (_state.value.updating) return
         _state.value = _state.value.copy(updating = true, message = null)
         try {
             var lastErr: String? = null
             var zip: File? = null
+            val candidates = mutableListOf<String>()
+            candidates += Net.candidateUrls(url)
+            if (url != BuildConfig.FFMPEG_FALLBACK_URL) {
+                candidates += Net.candidateUrls(BuildConfig.FFMPEG_FALLBACK_URL)
+            }
             Logs.append(context, "ffmpeg", "开始下载安装（源: $url）")
-            for (u in Net.candidateUrls(url)) {
+            for (u in candidates.distinct()) {
                 lastErr = Net.downloadToFile(u, File(context.cacheDir, "ffmpeg.zip"))
                 if (lastErr == null) { zip = File(context.cacheDir, "ffmpeg.zip"); break }
             }
