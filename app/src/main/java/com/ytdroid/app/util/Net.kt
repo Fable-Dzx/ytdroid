@@ -17,7 +17,7 @@ object Net {
         "https://ghfast.top/",
         "https://gh-proxy.com/",
         "https://ghproxy.net/",
-        "https://mirror.ghproxy.com/",
+        "https://gh.ddlc.top/",
     )
 
     /** 生成候选下载地址：原地址优先，失败自动换镜像。 */
