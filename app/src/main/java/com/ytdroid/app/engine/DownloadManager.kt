@@ -8,6 +8,7 @@ import android.provider.MediaStore
 import androidx.core.content.ContextCompat
 import com.ytdroid.app.data.SettingsRepository
 import com.ytdroid.app.service.DownloadService
+import com.ytdroid.app.util.Logs
 import com.ytdroid.app.util.mimeTypeOf
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -85,9 +86,11 @@ object DownloadManager {
         val settings = SettingsRepository.current(appCtx)
 
         mark(task.copy(status = DownloadTask.Status.RUNNING, startTime = System.currentTimeMillis()))
+        Logs.append(appCtx, "download", "开始下载 #${task.id}: ${task.url.take(200)}")
 
         val ready = YtDlpEngine.ensureReady(appCtx, settings)
         if (!ready) {
+            Logs.append(appCtx, "download", "#${task.id} 失败：引擎未就绪")
             mark(task.copy(status = DownloadTask.Status.FAILED, error = "引擎未就绪，请查看「环境」页"))
             return
         }
@@ -95,6 +98,7 @@ object DownloadManager {
         val rc = try {
             YtDlpEngine.runTask(appCtx, task, settings) { u -> mark(u) }
         } catch (e: Exception) {
+            Logs.append(appCtx, "download", "#${task.id} 异常: ${e.message}")
             mark(task.copy(status = DownloadTask.Status.FAILED, error = e.message ?: "运行失败"))
             return
         }
@@ -113,6 +117,14 @@ object DownloadManager {
             error = if (status == DownloadTask.Status.FAILED) latest.error.ifBlank { "退出码 $rc" } else latest.error,
         )
         mark(final)
+        Logs.append(
+            appCtx, "download",
+            "#${task.id} ${when (status) {
+                DownloadTask.Status.DONE -> "完成"
+                DownloadTask.Status.CANCELLED -> "已取消"
+                else -> "失败（退出码 $rc）: ${final.error}"
+            }}"
+        )
 
         if (status == DownloadTask.Status.DONE && settings.saveToMediaStore) {
             saveOutputsToMediaStore(appCtx, final.outputs)

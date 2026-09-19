@@ -2,6 +2,10 @@ package com.ytdroid.app.ui
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.material3.Dialog
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Surface
+import androidx.core.content.FileProvider
 import com.ytdroid.app.BuildConfig
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -12,6 +16,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -20,6 +25,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -53,6 +59,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ytdroid.app.data.AppSettings
 import com.ytdroid.app.data.SettingsRepository
 import com.ytdroid.app.engine.YtDlpEngine
+import com.ytdroid.app.util.Logs
 import com.ytdroid.app.util.formatBytes
 import com.ytdroid.app.util.resolveDownloadDir
 import com.ytdroid.app.util.toast
@@ -78,6 +85,13 @@ fun EnvironmentScreen() {
 
     var showConfigEditor by remember { mutableStateOf(false) }
     var configText by remember { mutableStateOf("") }
+
+    // 日志查看
+    var showLogs by remember { mutableStateOf(false) }
+    var logLines by remember { mutableStateOf<List<String>>(emptyList()) }
+    LaunchedEffect(showLogs) {
+        if (showLogs) logLines = Logs.read(context)
+    }
 
     val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (uri == null) return@rememberLauncherForActivityResult
@@ -394,6 +408,27 @@ fun EnvironmentScreen() {
                 )
             }
         }
+
+        // ---------- 日志 ----------
+        item { SectionTitle("日志") }
+        item {
+            CardBox {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("运行日志", style = MaterialTheme.typography.titleSmall)
+                        Text(
+                            "引擎初始化 / 更新 / 下载 / 命令行记录",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    OutlinedButton(onClick = { showLogs = true }) { Text("查看") }
+                }
+            }
+        }
     }
 
     // ---------- 配置文件编辑器 ----------
@@ -427,5 +462,81 @@ fun EnvironmentScreen() {
                 }
             },
         )
+    }
+
+    // ---------- 日志查看对话框 ----------
+    if (showLogs) {
+        Dialog(onDismissRequest = { showLogs = false }) {
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = MaterialTheme.colorScheme.surface,
+                tonalElevation = 6.dp,
+                modifier = Modifier.fillMaxWidth().fillMaxHeight(0.92f),
+            ) {
+                Column(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 8.dp)) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            "运行日志",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.weight(1f),
+                        )
+                        TextButton(onClick = { logLines = Logs.read(context) }) { Text("刷新") }
+                        TextButton(onClick = {
+                            Logs.clear(context)
+                            logLines = emptyList()
+                            context.toast("日志已清空")
+                        }) { Text("清空") }
+                        TextButton(onClick = {
+                            val f = Logs.file(context)
+                            if (!f.exists()) {
+                                context.toast("暂无日志可导出")
+                            } else {
+                                val uri = FileProvider.getUriForFile(
+                                    context,
+                                    "${context.packageName}.fileprovider",
+                                    f,
+                                )
+                                val i = Intent(Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(Intent.EXTRA_STREAM, uri)
+                                    putExtra(Intent.EXTRA_TEXT, "ytDroid 运行日志\n${Logs.file(context).absolutePath}")
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                }
+                                runCatching {
+                                    context.startActivity(Intent.createChooser(i, "导出日志"))
+                                }.onFailure { context.toast("没有可用的分享应用") }
+                            }
+                        }) { Text("导出") }
+                        TextButton(onClick = { showLogs = false }) { Text("关闭") }
+                    }
+                    HorizontalDivider(Modifier.padding(bottom = 4.dp))
+                    if (logLines.isEmpty()) {
+                        Text(
+                            "暂无日志。进行下载、更新或命令行操作后会自动记录。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(16.dp),
+                        )
+                    } else {
+                        LazyColumn(Modifier.fillMaxSize()) {
+                            items(logLines.size) { idx ->
+                                Text(
+                                    logLines[idx],
+                                    fontFamily = FontFamily.Monospace,
+                                    fontSize = 11.sp,
+                                    lineHeight = 15.sp,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 1.dp),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }

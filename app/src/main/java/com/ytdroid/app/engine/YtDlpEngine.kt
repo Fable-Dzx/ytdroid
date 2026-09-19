@@ -4,6 +4,7 @@ import android.content.Context
 import com.ytdroid.app.BuildConfig
 import com.ytdroid.app.data.AppSettings
 import com.ytdroid.app.data.SettingsRepository
+import com.ytdroid.app.util.Logs
 import com.ytdroid.app.util.Net
 import com.ytdroid.app.util.Zips
 import com.ytdroid.app.util.ffmpegVersion
@@ -76,6 +77,7 @@ object YtDlpEngine {
             if (initialized.value) return true
             val appCtx = context.applicationContext
             try {
+                Logs.append(appCtx, "engine", "初始化开始")
                 extractBundled(appCtx)
                 cleanupRunDir(appCtx)
                 PythonBridge.ensureStarted(appCtx)
@@ -86,8 +88,10 @@ object YtDlpEngine {
                 refreshVersions(appCtx)
                 initialized.value = true
                 _state.value = _state.value.copy(ready = true, message = null)
+                Logs.append(appCtx, "engine", "初始化完成（yt-dlp ${_state.value.ytDlpVersion ?: "?"} / ffmpeg ${_state.value.ffmpegVersion ?: "未安装"} / Python ${_state.value.pythonVersion ?: "?"}）")
                 true
             } catch (e: Exception) {
+                Logs.append(appCtx, "engine", "初始化失败: ${e.message}")
                 _state.value = _state.value.copy(message = "引擎初始化失败: ${e.message}")
                 false
             }
@@ -157,6 +161,7 @@ object YtDlpEngine {
                 if (lastErr == null) { downloaded = true; break }
             }
             if (!downloaded) {
+                Logs.append(context, "yt-dlp", "更新下载失败：$lastErr")
                 _state.value = _state.value.copy(message = "下载 yt-dlp 更新失败：$lastErr")
                 return
             }
@@ -185,7 +190,9 @@ object YtDlpEngine {
                 versionMarker(context).writeText(newVersion)
             }
             _state.value = _state.value.copy(message = "yt-dlp 已更新至 $newVersion")
+            Logs.append(context, "yt-dlp", "已更新至 $newVersion（源: $url）")
         } catch (e: Exception) {
+            Logs.append(context, "yt-dlp", "更新失败: ${e.message}")
             _state.value = _state.value.copy(message = "yt-dlp 更新失败: ${e.message}")
         } finally {
             _state.value = _state.value.copy(updating = false)
@@ -227,11 +234,14 @@ object YtDlpEngine {
             val ff = ffmpegFile(context)
             if (!ff.exists()) {
                 _state.value = _state.value.copy(message = "压缩包内未找到 ffmpeg 可执行文件")
+                Logs.append(context, "ffmpeg", "安装失败：压缩包内未找到可执行文件")
                 return
             }
             refreshVersions(context)
             _state.value = _state.value.copy(message = "ffmpeg 安装完成：${_state.value.ffmpegVersion ?: "已就绪"}")
+            Logs.append(context, "ffmpeg", "安装完成（${_state.value.ffmpegVersion ?: "已就绪"}，共 $copied 个文件）")
         } catch (e: Exception) {
+            Logs.append(context, "ffmpeg", "安装失败: ${e.message}")
             _state.value = _state.value.copy(message = "ffmpeg 安装失败: ${e.message}")
         } finally {
             _state.value = _state.value.copy(updating = false)
@@ -245,17 +255,20 @@ object YtDlpEngine {
         try {
             var lastErr: String? = null
             var zip: File? = null
+            Logs.append(context, "ffmpeg", "开始下载安装（源: $url）")
             for (u in Net.candidateUrls(url)) {
                 lastErr = Net.downloadToFile(u, File(context.cacheDir, "ffmpeg.zip"))
                 if (lastErr == null) { zip = File(context.cacheDir, "ffmpeg.zip"); break }
             }
             if (zip == null) {
+                Logs.append(context, "ffmpeg", "下载失败：$lastErr")
                 _state.value = _state.value.copy(message = "ffmpeg 下载失败：$lastErr")
                 return
             }
             _state.value = _state.value.copy(updating = false)
             installFfmpegZip(context, zip)
         } catch (e: Exception) {
+            Logs.append(context, "ffmpeg", "下载失败: ${e.message}")
             _state.value = _state.value.copy(updating = false, message = "ffmpeg 下载失败: ${e.message}")
         }
     }
@@ -283,6 +296,7 @@ object YtDlpEngine {
             val url = settings.configUrl.trim().ifEmpty { BuildConfig.DEFAULT_CONFIG_URL }
             val text = Net.getText(url)
             if (text == null) {
+                Logs.append(context, "config", "获取配置文件失败（$url）")
                 _state.value = _state.value.copy(message = "获取配置文件失败")
                 return
             }
@@ -290,7 +304,9 @@ object YtDlpEngine {
             cfg.parentFile?.mkdirs()
             cfg.writeText(text)
             _state.value = _state.value.copy(message = "配置文件已更新")
+            Logs.append(context, "config", "已更新（$url）")
         } catch (e: Exception) {
+            Logs.append(context, "config", "更新失败: ${e.message}")
             _state.value = _state.value.copy(message = "配置更新失败: ${e.message}")
         } finally {
             _state.value = _state.value.copy(configUpdating = false)
@@ -372,6 +388,7 @@ object YtDlpEngine {
         if (tokens.isEmpty()) return@withContext 2
         // runner.py 会自动在 argv 前补 "yt-dlp" 程序名，这里剥掉用户手写的
         val argv = if (tokens[0] == "yt-dlp") tokens.drop(1) else tokens
+        Logs.append(appCtx, "cli", "执行: yt-dlp ${argv.joinToString(" ").take(300)}")
 
         val dir = ytdlpDir(appCtx)
         val run = runDir(appCtx)
@@ -413,7 +430,9 @@ object YtDlpEngine {
             tailer.join()
             cliIdentFile = null
         }
-        runCatching { rcFile.readText().trim().toInt() }.getOrNull() ?: 2
+        val rc = runCatching { rcFile.readText().trim().toInt() }.getOrNull() ?: 2
+        Logs.append(appCtx, "cli", "执行结束（退出码 $rc）")
+        rc
     }
 
     /** 请求取消当前命令行任务（注入 KeyboardInterrupt）。 */
