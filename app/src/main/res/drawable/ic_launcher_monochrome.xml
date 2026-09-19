@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- ytDroid 单色图标（Android 13 主题图标）：下载箭头 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M50,22 L58,22 L58,56 L66,56 L54,80 L42,56 L50,56 Z" />
+</vector>
